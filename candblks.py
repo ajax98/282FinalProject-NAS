@@ -89,9 +89,13 @@ class FBNetBlock(nn.Module):
 
 def get_blocks(cifar10=False, face=False):
   BLOCKS = []
-  _f = [16, 16, 24, 32, 
-      64, 112, 184, 352,
-      1984]
+  # _f = [16, 16, 24, 32, 
+  #     64, 112, 184, 352,
+  #     1984]
+  _f = [8, 8, 12, 16, 
+    32, 56, 92, 176,
+    992]
+
   _n = [1, 1, 4, 4,
       4, 4, 4, 1,
       1]
@@ -117,9 +121,11 @@ def get_blocks(cifar10=False, face=False):
           1, 2, 1, 1]
   tbs_range = slice(1, 8) # [1, 7]
 
-  BLOCKS.append(nn.Conv2d(3, 16, 3, 2, padding=1))
+  # BLOCKS.append(nn.Conv2d(3, 16, 3, 2, padding=1))
+  BLOCKS.append(nn.Conv2d(3, 8, 3, 2, padding=1))
+
   
-  c_in = 16
+  c_in = 8
   for n_idx in range(len(_n))[tbs_range]:
     c_out = _f[n_idx]
     stride = _s[n_idx]
@@ -141,6 +147,7 @@ def get_blocks(cifar10=False, face=False):
       BLOCKS.append(tmp_block)
       stride = 1
       c_in = c_out
-  BLOCKS.append(nn.Conv2d(c_out, 1984, 1, padding=0))
+  BLOCKS.append(nn.Conv2d(c_out, 992, 1, padding=0))
+  # print("BLOCKS: ", BLOCKS)
   assert len(BLOCKS) == 24
   return BLOCKS

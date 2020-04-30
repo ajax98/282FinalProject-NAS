@@ -42,7 +42,7 @@ class FBNet(nn.Module):
                beta=0,
                gamma=0,
                delta=0,
-               dim_feature=1984):
+               dim_feature=992):
     super(FBNet, self).__init__()
     init_func = lambda x: nn.init.constant_(x, init_theta)
     
@@ -55,7 +55,8 @@ class FBNet(nn.Module):
     self.theta = []
     self._ops = nn.ModuleList()
     self._blocks = blocks
-    print("Blocks: ", blocks)
+    # print("Blocks: ", blocks)
+    # print("Length of blocks: ", len(blocks))
     tmp = []
     input_conv_count = 0
     for b in blocks:
@@ -82,6 +83,12 @@ class FBNet(nn.Module):
       else:
         break
     self._output_conv = nn.Sequential(*tmp)
+
+    # print("Input Conv: ", self._input_conv)
+    # print("Input Conv Count: ", self._input_conv_count)
+    # print("Output Conv: ", self._output_conv)
+    # print("Theta List: ", self.theta)
+    # print("Length of theta: ", len(self.theta))
 
     # assert len(self.theta) == 22
     with open(speed_f, 'r') as f:
@@ -135,11 +142,22 @@ class FBNet(nn.Module):
   def forward(self, input, target, temperature=5.0, theta_list=None):
     batch_size = input.size()[0]
     self.batch_size = batch_size
+    # print("ENTERING INPUT CONV")
+    # print("Start Data Shape: ", input.shape)
+
     data = self._input_conv(input)
+    # print("CONV")
+    # print("FINISHED INPUT CONV")
+    # print("Data shape after input conv: ", data.shape)
     theta_idx = 0
     lat = []
     ener = []
+
+    # print("L_indx: ", 0, "Data Shape: ", data.shape)
+
     for l_idx in range(self._input_conv_count, len(self._blocks)):
+      # print("L Idx: ", l_idx)
+
       block = self._blocks[l_idx]
       if isinstance(block, list):
         blk_len = len(block)
@@ -157,6 +175,9 @@ class FBNet(nn.Module):
         lat.append(torch.sum(lat_))
         ener.append(torch.sum(ener_))
         data = self._ops[theta_idx](data, weight)
+        # print("CONV")
+        # print("L_indx: ", l_idx, "Data Shape: ", data.shape)
+
         theta_idx += 1
       else:
         break
