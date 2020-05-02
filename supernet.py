@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -364,6 +366,9 @@ class Trainer(object):
     """Save theta.
     """
     res = []
+    directory = os.path.dirname(save_path)
+    if not os.path.exists(directory):
+      os.makedirs(directory)
     with open(save_path, 'w') as f:
       for i,t in enumerate(self.theta):
         t_list = list(t.detach().cpu().numpy())

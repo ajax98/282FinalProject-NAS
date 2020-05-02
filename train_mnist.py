@@ -80,17 +80,13 @@ if not os.path.exists(args.model_save_path):
 _set_file(args.model_save_path + 'log.log')
 
 import torchvision.transforms as transforms
-CIFAR_MEAN = [0.49139968, 0.48215827, 0.44653124]
-CIFAR_STD = [0.24703233, 0.24348505, 0.26158768]
-train_transform = transforms.Compose([
-    transforms.RandomCrop(32, padding=4),
-    transforms.RandomHorizontalFlip(),
-    transforms.ToTensor(),
-    transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-  ])
-train_data = dset.CIFAR10(root='./data', train=True, 
-                download=True, transform=train_transform)
 
+train_data = dset.MNIST('./data/', train=True, download=True,
+                             transform=transforms.Compose([
+                               transforms.Grayscale(3), # Hack to make it work with 3 channels
+                               transforms.ToTensor(),
+                               transforms.Normalize((0.1307,), (0.3081,))
+                             ]))
 num_train = len(train_data)
 indices = list(range(num_train))
 split = int(np.floor(config.train_portion * num_train))
