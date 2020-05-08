@@ -33,6 +33,7 @@ class FBNetBlock(nn.Module):
   def __init__(self, C_in, C_out, kernel_size, stride,
               expansion, group, bn=False):
     super(FBNetBlock, self).__init__()
+    self.expansion = expansion
     assert not bn, "not support bn for now"
     bias_flag = not bn
     if kernel_size == 1:
@@ -126,6 +127,7 @@ def get_blocks(cifar10=False, face=False):
 
   
   c_in = 8
+
   for n_idx in range(len(_n))[tbs_range]:
     c_out = _f[n_idx]
     stride = _s[n_idx]

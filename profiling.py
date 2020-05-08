@@ -1,5 +1,9 @@
 import time
 import torch
+import numpy as np
+import torch.nn as nn
+from torch.autograd import Variable
+from candblks import get_blocks
 
 def measure(blocks, 
             input_shape = (1, 3, 108, 108),
@@ -20,7 +24,7 @@ def measure(blocks,
           output = net(input)
         toc = time.time()
         speed = 1.0 * (toc - tic) / times
-
+        print(speed)
         f.write('%.7f ' % speed)
         
       f.write('\n')
@@ -29,11 +33,120 @@ def measure(blocks,
       b.cuda()
       output = b(input)
     input_shape = output.size()
+    print(input_shape)
   f.close()
 
+def measure_memory(blocks, 
+            input_shape = (1, 3, 108, 108),
+            result_path='rpi_memory.txt'):
 
-from blocks_custom import get_blocks
+  print(input_shape)
+  times = 2000
+  f = open(result_path, 'w')
+  counter = 1
+  
+  for b in blocks:
+    if isinstance(b, list):
+      # print(len(b))
+      for net in b:
+        se = SizeEstimator(net, input_size=input_shape)
+        memory = se.estimate_size()[0]
 
-blks = get_blocks(face=True)
-measure(blks)
+        net.cuda()
+        input = torch.randn(input_shape).cuda()
+        output = net(input)
+        # memory = output.element_size() * output.nelement() * 1e-6
+        f.write('%.7f ' % memory)
+        
+      f.write('\n')
+    else:
+      input = torch.randn(input_shape).cuda()
+      b.cuda()
+      output = b(input)
+    input_shape = output.size()
+    counter += 1
+  f.close()
+
+class SizeEstimator(object):
+
+    def __init__(self, model, input_size=(1,1,32,32), bits=32):
+        '''
+        Estimates the size of PyTorch models in memory
+        for a given input size
+        '''
+        self.model = model
+        self.input_size = input_size
+        self.bits = 32
+        return
+
+    def get_parameter_sizes(self):
+        '''Get sizes of all parameters in `model`'''
+        mods = list(self.model.modules())
+        sizes = []
+        
+        for i in range(1,len(mods)):
+            m = mods[i]
+            p = list(m.parameters())
+            for j in range(len(p)):
+                sizes.append(np.array(p[j].size()))
+
+        self.param_sizes = sizes
+        return
+
+    def get_output_sizes(self):
+        '''Run sample input through each layer to get output sizes'''
+        input_ = torch.randn(self.input_size)
+        mods = list(self.model.modules())
+        out_sizes = []
+        for i in range(2, len(mods)):
+            m = mods[i]
+            out = m(input_)
+            out_sizes.append(np.array(out.size()))
+            input_ = out
+
+        self.out_sizes = out_sizes
+        return
+
+    def calc_param_bits(self):
+        '''Calculate total number of bits to store `model` parameters'''
+        total_bits = 0
+        for i in range(len(self.param_sizes)):
+            s = self.param_sizes[i]
+            bits = np.prod(np.array(s))*self.bits
+            total_bits += bits
+        self.param_bits = total_bits
+        return
+
+    def calc_forward_backward_bits(self):
+        '''Calculate bits to store forward and backward pass'''
+        total_bits = 0
+        for i in range(len(self.out_sizes)):
+            s = self.out_sizes[i]
+            bits = np.prod(np.array(s))*self.bits
+            total_bits += bits
+        # multiply by 2 for both forward AND backward
+        self.forward_backward_bits = (total_bits*2)
+        return
+
+    def calc_input_bits(self):
+        '''Calculate bits to store input'''
+        self.input_bits = np.prod(np.array(self.input_size))*self.bits
+        return
+
+    def estimate_size(self):
+        '''Estimate model size in memory in megabytes and bits'''
+        self.get_parameter_sizes()
+        self.get_output_sizes()
+        self.calc_param_bits()
+        self.calc_forward_backward_bits()
+        self.calc_input_bits()
+        total = self.param_bits + self.forward_backward_bits + self.input_bits
+
+        total_megabytes = (total/8)/(1024**2)
+        return total_megabytes, total
+
+
+blks = get_blocks()
+# measure(blks)
+measure_memory(blks)
         

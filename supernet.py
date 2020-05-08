@@ -40,10 +40,13 @@ class FBNet(nn.Module):
                init_theta=1.0,
                speed_f='./speed.txt',
                energy_f='./energy.txt',
+               memory_f='./rpi_memory.txt',
                alpha=0,
                beta=0,
                gamma=0,
                delta=0,
+               epsilon=0,
+               zeta=0,
                dim_feature=992):
     super(FBNet, self).__init__()
     init_func = lambda x: nn.init.constant_(x, init_theta)
@@ -52,6 +55,8 @@ class FBNet(nn.Module):
     self._beta = beta
     self._gamma = gamma
     self._delta = delta
+    self._epsilon = epsilon
+    self._zeta = zeta
     self._criterion = nn.CrossEntropyLoss().cuda()
 
     self.theta = []
@@ -106,6 +111,13 @@ class FBNet(nn.Module):
 
     self._energy = [[float (t) for t in s.strip().split(' ')] for s in _energy]
 #############################################
+
+    with open(memory_f, 'r') as f:
+      _memory = f.readlines()
+
+    self._memory = [[float (t) for t in s.strip().split(' ')] for s in _memory]
+#############################################
+
     # TODO
     max_len = max([len(s) for s in self._speed])
     iden_s = 0.0
@@ -131,10 +143,24 @@ class FBNet(nn.Module):
       if len(self._energy[i]) == (max_len - 1):
         self._energy[i].append(iden_s)
 #######################################################
+    max_len = max([len(s) for s in self._memory])
+    iden_s = 0.0
+    iden_s_c = 0
+    for s in self._memory:
+      if len(s) == max_len:
+        iden_s += s[max_len - 1]
+        iden_s_c += 1
+    iden_s /= iden_s_c
+    for i in range(len(self._memory)):
+      if len(self._memory[i]) == (max_len - 1):
+        self._memory[i].append(iden_s)
+#######################################################
     self._speed = torch.tensor(self._speed, requires_grad=False)
 
 #######################################################
     self._energy = torch.tensor(self._energy, requires_grad=False)
+#######################################################
+    self._memory = torch.tensor(self._memory, requires_grad=False)
 #######################################################
     self.classifier = nn.Linear(dim_feature, num_classes)
     # TODO
@@ -154,6 +180,7 @@ class FBNet(nn.Module):
     theta_idx = 0
     lat = []
     ener = []
+    mem = []
 
     # print("L_indx: ", 0, "Data Shape: ", data.shape)
 
@@ -172,10 +199,13 @@ class FBNet(nn.Module):
                                 temperature)
         speed = self._speed[theta_idx][:blk_len].to(weight.device)
         energy = self._energy[theta_idx][:blk_len].to(weight.device)
+        memory = self._memory[theta_idx][:blk_len].to(weight.device)
         lat_ = weight * speed.repeat(batch_size, 1)
         ener_ = weight * energy.repeat(batch_size, 1)
+        mem_ = weight * memory.repeat(batch_size, 1)
         lat.append(torch.sum(lat_))
         ener.append(torch.sum(ener_))
+        mem.append(torch.sum(mem_))
         data = self._ops[theta_idx](data, weight)
         # print("CONV")
         # print("L_indx: ", l_idx, "Data Shape: ", data.shape)
@@ -187,6 +217,7 @@ class FBNet(nn.Module):
     data = self._output_conv(data)
     lat = sum(lat)
     ener = sum(ener)
+    mem = sum(mem)
     data = nn.functional.avg_pool2d(data, data.size()[2:])
     data = data.reshape((batch_size, -1))
     logits = self.classifier(data)
@@ -194,12 +225,13 @@ class FBNet(nn.Module):
     self.ce = self._criterion(logits, target).sum()
     self.lat_loss = lat / batch_size
     self.ener_loss = ener / batch_size
-    self.loss = self.ce +  self._alpha * self.lat_loss.pow(self._beta) + self._gamma * self.ener_loss.pow(self._delta)
+    self.mem_loss = mem / batch_size
+    self.loss = self.ce +  self._alpha * self.lat_loss.pow(self._beta) + self._gamma * self.ener_loss.pow(self._delta) + self._epsilon * self.mem_loss.pow(self._zeta)
 
     pred = torch.argmax(logits, dim=1)
     # succ = torch.sum(pred == target).cpu().numpy() * 1.0
     self.acc = torch.sum(pred == target).float() / batch_size
-    return self.loss, self.ce, self.lat_loss, self.acc, self.ener_loss
+    return self.loss, self.ce, self.lat_loss, self.acc, self.ener_loss, self.mem_loss
 
 class Trainer(object):
   """Training network parameters and theta separately.
@@ -244,6 +276,7 @@ class Trainer(object):
     self._lat_avg = AvgrageMeter('lat')
     self._loss_avg = AvgrageMeter('loss')
     self._ener_avg = AvgrageMeter('ener')
+    self._mem_avg = AvgrageMeter('mem')
 
     self.w_opt = torch.optim.SGD(
                     mod_params,
@@ -262,27 +295,27 @@ class Trainer(object):
     """Update model parameters.
     """
     self.w_opt.zero_grad()
-    loss, ce, lat, acc,ener = self._mod(input, target, self.temp)
+    loss, ce, lat, acc,ener, mem = self._mod(input, target, self.temp)
     loss.backward()
     self.w_opt.step()
     if decay_temperature:
       tmp = self.temp
       self.temp *= self._tem_decay
       self.logger.info("Change temperature from %.5f to %.5f" % (tmp, self.temp))
-    return loss.item(), ce.item(), lat.item(), acc.item(),ener.item()
+    return loss.item(), ce.item(), lat.item(), acc.item(),ener.item(), mem.item()
   
   def train_t(self, input, target, decay_temperature=False):
     """Update theta.
     """
     self.t_opt.zero_grad()
-    loss, ce, lat, acc,ener = self._mod(input, target, self.temp)
+    loss, ce, lat, acc,ener, mem = self._mod(input, target, self.temp)
     loss.backward()
     self.t_opt.step()
     if decay_temperature:
       tmp = self.temp
       self.temp *= self._tem_decay
       self.logger.info("Change temperature from %.5f to %.5f" % (tmp, self.temp))
-    return loss.item(), ce.item(), lat.item(), acc.item(),ener.item()
+    return loss.item(), ce.item(), lat.item(), acc.item(),ener.item(), mem.item()
   
   def decay_temperature(self, decay_ratio=None):
     tmp = self.temp
@@ -300,7 +333,7 @@ class Trainer(object):
     """
     input = input.cuda()
     target = target.cuda()
-    loss, ce, lat, acc ,ener= func(input, target)
+    loss, ce, lat, acc ,ener, mem= func(input, target)
 
     # Get status
     batch_size = self._mod.batch_size
@@ -310,6 +343,7 @@ class Trainer(object):
     self._lat_avg.update(lat)
     self._loss_avg.update(loss)
     self._ener_avg.update(ener)
+    self._mem_avg.update(mem)
 
     if step > 1 and (step % log_frequence == 0):
       self.toc = time.time()
@@ -318,11 +352,12 @@ class Trainer(object):
       self.tensorboard.log_scalar('Accuracy',self._acc_avg.getValue(),step)
       self.tensorboard.log_scalar('Latency',self._lat_avg.getValue(),step)
       self.tensorboard.log_scalar('Energy',self._ener_avg.getValue(),step)
-      self.logger.info("Epoch[%d] Batch[%d] Speed: %.6f samples/sec %s %s %s %s %s" 
+      self.tensorboard.log_scalar('Memory',self._mem_avg.getValue(),step)
+      self.logger.info("Epoch[%d] Batch[%d] Speed: %.6f samples/sec %s %s %s %s %s %s" 
               % (epoch, step, speed, self._loss_avg, 
-                 self._acc_avg, self._ce_avg, self._lat_avg,self._ener_avg))
+                 self._acc_avg, self._ce_avg, self._lat_avg,self._ener_avg, self._mem_avg))
       map(lambda avg: avg.reset(), [self._loss_avg, self._acc_avg, 
-                                    self._ce_avg, self._lat_avg,self._ener_avg])
+                                    self._ce_avg, self._lat_avg,self._ener_avg, self._mem_avg])
       self.tic = time.time()
   
   def search(self, train_w_ds,

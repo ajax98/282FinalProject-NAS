@@ -67,8 +67,11 @@ parser.add_argument('--alpha', type=float, default=0, help='scaling term for lat
 parser.add_argument('--beta', type=float, default=0, help='power term for latency loss default 0')
 parser.add_argument('--gamma', type=float, default=0, help='scaling term for energy loss default 0')
 parser.add_argument('--delta', type=float, default=0, help='power term for energy loss default 0')
+parser.add_argument('--epsilon', type=float, default=0, help='scaling term for memory loss default 0')
+parser.add_argument('--zeta', type=float, default=0, help='power term for memory loss default 0')
 parser.add_argument('--energy-file', type=str, default='new_rpi_energy.txt', help = 'target device energy file')
 parser.add_argument('--latency-file', type=str, default='speed.txt', help = 'target device latency file')
+parser.add_argument('--memory-file', type=str, default='rpi_memory.txt', help = 'target device memory file')
 args = parser.parse_args()
 
 args.model_save_path = '%s/%s/' % \
@@ -111,8 +114,11 @@ model = FBNet(num_classes=config.num_cls_used if config.num_cls_used > 0 else 10
               beta=args.beta,
               gamma=args.gamma,
               delta=args.delta,
+              epsilon=args.epsilon,
+              zeta=args.zeta,
               speed_f=args.latency_file,
-	      energy_f=args.energy_file)
+              energy_f=args.energy_file,
+        memory_f=args.memory_file)
 
 trainer = Trainer(network=model,
                   w_lr=config.w_lr,
