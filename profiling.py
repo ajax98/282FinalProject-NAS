@@ -24,7 +24,6 @@ def measure(blocks,
           output = net(input)
         toc = time.time()
         speed = 1.0 * (toc - tic) / times
-        print(speed)
         f.write('%.7f ' % speed)
         
       f.write('\n')
@@ -33,21 +32,18 @@ def measure(blocks,
       b.cuda()
       output = b(input)
     input_shape = output.size()
-    print(input_shape)
   f.close()
 
 def measure_memory(blocks, 
             input_shape = (1, 3, 108, 108),
             result_path='rpi_memory.txt'):
 
-  print(input_shape)
   times = 2000
   f = open(result_path, 'w')
   counter = 1
   
   for b in blocks:
     if isinstance(b, list):
-      # print(len(b))
       for net in b:
         se = SizeEstimator(net, input_size=input_shape)
         memory = se.estimate_size()[0]
@@ -147,6 +143,6 @@ class SizeEstimator(object):
 
 
 blks = get_blocks()
-# measure(blks)
+measure(blks)
 measure_memory(blks)
         
