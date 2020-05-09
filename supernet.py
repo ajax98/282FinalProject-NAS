@@ -268,7 +268,8 @@ class Trainer(object):
     self._tem_decay = temperature_decay
     self.temp = init_temperature
     self.logger = logger
-    self.tensorboard = Tensorboard('logs/'+save_tb_log)
+    self.save_tb_log = save_tb_log
+    self.tensorboard = Tensorboard('logs/'+self.save_tb_log)
     self.save_theta_prefix = save_theta_prefix
 
     self._acc_avg = AvgrageMeter('acc')
@@ -380,14 +381,15 @@ class Trainer(object):
         #print(self.w_sche.last_epoch, self.w_opt.param_groups[0]['lr'])
 
     self.tic = time.time()
+    self.logger.info("Start to train theta for epoch %d" % (epoch + start_w_epoch))
     for epoch in range(total_epoch):
       self.logger.info("Start to train theta for epoch %d" % (epoch+start_w_epoch))
       for step, (input, target) in enumerate(train_t_ds):
         self._step(input, target, epoch + start_w_epoch, 
                    step, log_frequence,
                    lambda x, y: self.train_t(x, y, False))
-        self.save_theta('./theta-result/%s_theta_epoch_%d.txt' % 
-                    (self.save_theta_prefix, epoch+start_w_epoch), epoch)
+        self.save_theta('logs/%s/theta-result/%s_theta_epoch_%d.txt' %
+                    (self.save_tb_log, self.save_theta_prefix, epoch+start_w_epoch), epoch)
       self.decay_temperature()
       self.logger.info("Start to train w for epoch %d" % (epoch+start_w_epoch))
       for step, (input, target) in enumerate(train_w_ds):

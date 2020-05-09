@@ -101,6 +101,8 @@ test_data = dset.MNIST('./data/', train=False, download=True,
                                transforms.Normalize((0.1307,), (0.3081,))
                              ]))
 
+
+config.total_epoch = args.epochs
 num_train = len(train_data)
 indices = list(range(num_train))
 split = int(np.floor(config.train_portion * num_train))
