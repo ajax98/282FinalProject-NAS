@@ -90,6 +90,15 @@ train_data = dset.MNIST('./data/', train=True, download=True,
                                transforms.ToTensor(),
                                transforms.Normalize((0.1307,), (0.3081,))
                              ]))
+
+# Validation set
+val_data = dset.MNIST('./data/', train=False, download=True,
+                             transform=transforms.Compose([
+                               transforms.Grayscale(3), # Hack to make it work with 3 channels
+                               transforms.ToTensor(),
+                               transforms.Normalize((0.1307,), (0.3081,))
+                             ]))
+
 num_train = len(train_data)
 indices = list(range(num_train))
 split = int(np.floor(config.train_portion * num_train))
@@ -99,7 +108,7 @@ train_queue = torch.utils.data.DataLoader(
   shuffle=True, pin_memory=True, num_workers=16)
 
 val_queue = torch.utils.data.DataLoader(
-  train_data, batch_size=args.batch_size,
+  val_data, batch_size=args.batch_size,
   pin_memory=True, num_workers=8)
 
 blocks = get_blocks(cifar10=True)
