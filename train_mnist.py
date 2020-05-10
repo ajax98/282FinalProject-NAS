@@ -92,7 +92,7 @@ train_data = dset.MNIST('./data/', train=True, download=True,
                              ]))
 
 # Validation set
-val_data = dset.MNIST('./data/', train=False, download=True,
+test_data = dset.MNIST('./data/', train=False, download=True,
                              transform=transforms.Compose([
                                transforms.Grayscale(3), # Hack to make it work with 3 channels
                                transforms.ToTensor(),
@@ -108,7 +108,7 @@ train_queue = torch.utils.data.DataLoader(
   shuffle=True, pin_memory=True, num_workers=16)
 
 val_queue = torch.utils.data.DataLoader(
-  val_data, batch_size=args.batch_size,
+  test_data, batch_size=args.batch_size,
   pin_memory=True, num_workers=8)
 
 blocks = get_blocks(cifar10=True)
