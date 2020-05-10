@@ -46,7 +46,7 @@ def measure_memory(blocks,
     if isinstance(b, list):
       for net in b:
         se = SizeEstimator(net, input_size=input_shape)
-        memory = se.estimate_size()[0]
+        memory = se.estimate_size()[0] / 3
 
         net.cuda()
         input = torch.randn(input_shape).cuda()
@@ -143,6 +143,6 @@ class SizeEstimator(object):
 
 
 blks = get_blocks()
-measure(blks)
+# measure(blks)
 measure_memory(blks)
         
