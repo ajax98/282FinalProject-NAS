@@ -84,6 +84,8 @@ _set_file(args.model_save_path + 'log.log')
 
 import torchvision.transforms as transforms
 
+config.total_epoch = args.epochs
+
 train_data = dset.MNIST('./data/', train=True, download=True,
                              transform=transforms.Compose([
                                transforms.Grayscale(3), # Hack to make it work with 3 channels

@@ -91,7 +91,12 @@ train_transform = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
   ])
+
+config.total_epoch = args.epochs
+
 train_data = dset.CIFAR10(root='./data', train=True, 
+                download=True, transform=train_transform)
+test_data = dset.CIFAR10(root='./data', train=False,
                 download=True, transform=train_transform)
 
 num_train = len(train_data)
@@ -102,8 +107,8 @@ train_queue = torch.utils.data.DataLoader(
   train_data, batch_size=args.batch_size,
   shuffle=True, pin_memory=True, num_workers=16)
 
-val_queue = torch.utils.data.DataLoader(
-  train_data, batch_size=args.batch_size,
+test_queue = torch.utils.data.DataLoader(
+  test_data, batch_size=args.batch_size,
   pin_memory=True, num_workers=8)
 
 blocks = get_blocks(cifar10=True)
@@ -134,7 +139,7 @@ trainer = Trainer(network=model,
                   gpus=args.gpus,
 	          save_tb_log=args.tb_log)
 
-trainer.search(train_queue, val_queue,
+trainer.search(train_queue, test_queue,
                total_epoch=config.total_epoch,
                start_w_epoch=args.warmup,
                log_frequence=args.log_frequence)
